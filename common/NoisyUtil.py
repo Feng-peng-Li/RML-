@@ -86,7 +86,7 @@ def get_instance_noisy_label(n, newdataset, labels, num_classes, feature_size, n
             x = x.cuda()
             x = x.reshape(feature_size)
 
-        A = x.reshape(1, -1).mm(W[y]).squeeze(0)
+        A = x.view(1, -1).mm(W[y]).squeeze(0)
         A[y] = -inf
         A = flip_rate[i] * F.softmax(A, dim=0)
         A[y] += 1 - flip_rate[i]
@@ -213,12 +213,12 @@ class Train_Dataset(Dataset):
         img = Image.fromarray(img)
 
         if self.transform is not None:
-            img = self.transform(img)
+            img1 = self.transform(img)
 
         if self.target_transform is not None:
             target = self.target_transform(target)
 
-        return img, target,index
+        return img1,target,index
 
     def __len__(self):
         return self.length
@@ -251,7 +251,7 @@ class Semi_Labeled_Dataset(Dataset):
         if self.target_transform is not None:
             target = self.target_transform(target)
 
-        return out1, out2, target
+        return out1,out2, target,index
 
     def __len__(self):
         return self.length
@@ -261,10 +261,11 @@ class Semi_Labeled_Dataset(Dataset):
 
 
 class Semi_Unlabeled_Dataset(Dataset):
-    def __init__(self, data, transform=None):
+    def __init__(self, data,labels,u_label, transform=None):
         self.train_data = np.array(data)
+        self.train_labels = np.array(labels)
         self.length = self.train_data.shape[0]
-
+        self.target_u=u_label
         if transform is None:
             self.transform = transforms.ToTensor()
         else:
@@ -273,18 +274,19 @@ class Semi_Unlabeled_Dataset(Dataset):
     def __getitem__(self, index):
         img = self.train_data[index]
         img = Image.fromarray(img)
-
+        target=self.train_labels[index]
+        target_u=self.train_labels[index]
         if self.transform is not None:
-            out1 = self.transform(img)
-            out2 = self.transform(img)
+            out1 = self.transform[0](img)
+            out2 = self.transform[1](img)
 
-        return out1, out2
+        return out1,out2, target,target_u,index
 
     def __len__(self):
         return self.length
 
     def getData(self):
-        return self.train_data
+        return self.train_data,self.train_labels
 
 
 def getNoisyData(seed, dataset, data_root, data_percent, noise_type, noise_rate, include_noise=False):
